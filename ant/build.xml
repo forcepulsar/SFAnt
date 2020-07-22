@@ -1,0 +1,379 @@
+<project name="SF Metadata API with Ant" default="test" basedir="." xmlns:sf="antlib:com.salesforce">
+
+    <property file="build.properties"/>
+    <property environment="env"/>
+
+    <taskdef resource="com/salesforce/antlib.xml" uri="antlib:com.salesforce">
+        <classpath>
+            <pathelement location="../lib/ant-salesforce.jar" />          
+        </classpath>
+    </taskdef>
+
+    <taskdef resource="net/sf/antcontrib/antlib.xml">
+      <classpath>
+        <pathelement location="../lib/ant-contrib-1.0b3.jar"/>
+      </classpath>
+    </taskdef>
+  
+    <macrodef name="setCredentials">
+      <attribute name="org"/>
+      <sequential>
+        <property name="orguname" value="${sf.username.@{org}}" />
+        <property name="orgpwd" value="${sf.password.@{org}}" />
+        <property name="orgserver" value="${sf.serverurl.@{org}}" />
+      </sequential>
+    </macrodef>
+
+    <target name="init" description="Init Variables">
+      <property name="originalMetadata" value= "originalMetadata" />
+      <property name="backupMetadata" value= "backupMetadata" />
+    </target>
+
+
+    <target name="retrieveCode" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Org input: ${org}"/>
+      <echo message="user name: ${orguname}"/>
+
+      <delete dir="${originalMetadata}-${org}" />
+      <mkdir dir="${originalMetadata}-${org}"/>
+      <!-- Retrieve the contents into another directory -->
+      <sf:retrieve username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" retrieveTarget="${originalMetadata}-${org}" unpackaged="retrieveSource/package-code-only.xml"/>
+      
+    </target>
+
+    <target name="retrieveFullCopy" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Org input: ${org}"/>
+      <echo message="user name: ${orguname}"/>
+
+      <tstamp> 
+          <format  property = "TIMESTAMP"  pattern = "yyyy-MM-dd_HH-mm"/> 
+      </tstamp> 
+
+      <mkdir dir="${originalMetadata}-${org}-fullcopy-${TIMESTAMP}"/>
+      <!-- Retrieve the contents into another directory -->
+      <sf:retrieve username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" retrieveTarget="${originalMetadata}-${org}-fullcopy-${TIMESTAMP}" unpackaged="retrieveSource/package-full-copy.xml"/>
+
+    </target>
+
+    <target name="retrieveAndBackup" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Org input: ${org}"/>
+      <echo message="user name: ${orguname}"/>
+
+      <delete dir="${originalMetadata}-${org}" />
+      <mkdir dir="${originalMetadata}-${org}"/>
+      <!-- Retrieve the contents into another directory -->
+      <sf:retrieve username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" retrieveTarget="${originalMetadata}-${org}" unpackaged="retrieveSource/package.xml"/>
+
+      <tstamp> 
+          <format  property = "TIMESTAMP"  pattern = "yyyy-MM-dd_HH-mm"/> 
+      </tstamp> 
+      
+      <copy todir="${backupMetadata}-${org}-${TIMESTAMP}">
+        <fileset dir="${originalMetadata}-${org}"/>
+      </copy>
+      <zip destfile="${backupMetadata}-${org}-${TIMESTAMP}.zip">
+        <zipfileset dir="${originalMetadata}-${org}" includes="*" />
+      </zip>      
+    </target>
+
+
+    <target name="getMetadataForDeactivation" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Org input: ${org}"/>
+      <echo message="user name: ${orguname}"/>
+
+      <delete dir="${originalMetadata}-metadata-deactivate" />
+      <mkdir dir="${originalMetadata}-metadata-deactivate"/>
+      <!-- Retrieve the contents into another directory -->
+      <sf:retrieve username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" retrieveTarget="${originalMetadata}-metadata-deactivate" unpackaged="retrieveSource/package-deactivate.xml"/>
+
+      <tstamp> 
+          <format  property = "TIMESTAMP"  pattern = "yyyy-MM-dd_HH-mm"/> 
+      </tstamp> 
+      
+      <delete dir="${backupMetadata}-metadata-deactivate" />
+      <copy todir="${backupMetadata}-metadata-deactivate">
+        <fileset dir="${originalMetadata}-metadata-deactivate"/>
+      </copy>
+      <zip destfile="${backupMetadata}-metadata-deactivate-${TIMESTAMP}.zip">
+        <zipfileset dir="${originalMetadata}-metadata-deactivate" includes="*" />
+      </zip>      
+    </target>
+
+    <target name="deActivateLocal" depends="init">
+      <replaceregexp byline="false" flags="gmi" >
+          <regexp pattern="activeVersionNumber>\d+"/>
+          <substitution expression="activeVersionNumber>0"/>
+          <fileset dir="${originalMetadata}-metadata-deactivate/flowDefinitions/.">
+              <include name="*.flowDefinition"/>
+          </fileset>
+      </replaceregexp>    
+      <replaceregexp byline="false" flags="gmi" >
+          <regexp pattern="(validationRules>[\s\S]*?)active>true"/>
+          <substitution expression="\1active>false"/>
+          <fileset dir="${originalMetadata}-metadata-deactivate/objects/.">
+              <include name="*.object"/>
+          </fileset>
+      </replaceregexp>    
+      <replaceregexp byline="true" flags="gm" >
+          <regexp pattern="trackFeedHistory>true"/>
+          <substitution expression="trackFeedHistory>false"/>
+          <fileset dir="${originalMetadata}-metadata-deactivate/objects/.">
+              <include name="*.object"/>
+          </fileset>
+      </replaceregexp>
+      <replaceregexp byline="true" flags="gm" >
+          <regexp pattern="trackHistory>true"/>
+          <substitution expression="trackHistory>false"/>
+          <fileset dir="${originalMetadata}-metadata-deactivate/objects/.">
+              <include name="*.object"/>
+          </fileset>
+      </replaceregexp>    
+      <replaceregexp byline="true" flags="g" >
+          <regexp pattern="active>true(.*)"/>
+          <substitution expression="active>false\1"/>
+          <fileset dir="${originalMetadata}-metadata-deactivate/workflows/.">
+              <include name="*.workflow"/>
+          </fileset>
+      </replaceregexp>    
+      <replaceregexp byline="true" flags="g" >
+          <regexp pattern="isActive>true(.*)"/>
+          <substitution expression="isActive>false\1"/>
+          <fileset dir="${originalMetadata}-metadata-deactivate/duplicateRules/.">
+              <include name="*.duplicateRule"/>
+          </fileset>
+      </replaceregexp>    
+    </target>
+
+    <target name="deActivateSandboxMetadata" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Target Org: ${org}"/>
+      <echo message="User name: ${orguname}"/>
+
+      <sf:deploy username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" deployRoot="${originalMetadata}-metadata-deactivate" rollbackOnError="true"/>
+
+    </target>
+
+    <target name="setSandboxReadyForMasking" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Target Org: ${org}"/>
+      <echo message="User name: ${orguname}"/>
+
+      <antcall target="getMetadataForDeactivation"/>
+      <antcall target="deActivateLocal"/>
+      <antcall target="deActivateSandboxMetadata"/>
+
+    </target>
+    
+    <target name="restoreActivatedMetadata" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Org input: ${org}"/>
+      <echo message="User name: ${orguname}"/>
+
+      <sf:deploy username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" deployRoot="${backupMetadata}-metadata-deactivate" rollbackOnError="true"/>
+    </target>
+
+    <target name="retrieve" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Org input: ${org}"/>
+      <echo message="user name: ${orguname}"/>
+
+      <delete dir="${originalMetadata}-${org}" />
+      <delete dir="${originalMetadata}-deploy" />
+      <mkdir dir="${originalMetadata}-${org}"/>
+      <mkdir dir="${originalMetadata}-deploy"/>
+      <!-- Retrieve the contents into another directory -->
+      <sf:retrieve username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" retrieveTarget="${originalMetadata}-${org}" unpackaged="retrieveSource/package.xml"/>
+
+      <copy todir="${originalMetadata}-deploy">
+        <fileset dir="${originalMetadata}-${org}"/>
+      </copy>
+    </target>
+
+    <target name="deploy" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Target Org: ${org}"/>
+      <echo message="User name: ${orguname}"/>
+
+      <sf:deploy username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" deployRoot="${originalMetadata}-deploy" rollbackOnError="true"/>
+
+    </target>
+
+    
+    <target name="validate" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Target Org: ${org}"/>
+      <echo message="User name: ${orguname}"/>
+
+      <sf:deploy username="${orguname}" checkOnly="true" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" deployRoot="${originalMetadata}-deploy" rollbackOnError="true"/>
+
+    </target>
+
+    <target name="validateBAU" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Target Org: ${org}"/>
+      <echo message="User name: ${orguname}"/>
+
+      <sf:deploy username="${orguname}" checkOnly="true" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" deployRoot="${originalMetadata}-deploy" rollbackOnError="true"  testLevel="RunSpecifiedTests">
+
+        <runTest>TESTTORUN1</runTest>
+        <runTest>TESTTORUN2</runTest>
+      </sf:deploy>
+    </target>
+
+    <target name="deployBackup" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Org input: ${org}"/>
+      <echo message="User name: ${orguname}"/>
+
+      <sf:deploy username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" deployRoot="${backupMetadata}" rollbackOnError="true"/>
+    </target>
+
+    <target name="quickDeploy" depends="init">
+      <property name="org" value="DEV" />
+      <property name="validationId" value="123" />
+      <setCredentials org="${org}" />
+      <echo message="Target Org: ${org}"/>
+      <echo message="User name: ${orguname}"/>
+      <echo message="validation id: ${validationId}"/>
+
+      <sf:deployRecentValidation username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}"
+                                 recentValidationId="${validationId}"/>
+    </target>
+
+
+    <target name="listEmailFolder"  >
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Org input: ${org}"/>
+      <echo message="User name: ${orguname}"/>
+
+      <delete file="listEmail.log"/>
+      <delete file="EmailTemplateFolders.txt"/>
+
+      <sf:listMetadata username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}"
+                    metadataType="EmailFolder" resultFilePath="listEmail.log"/>
+
+      <loadfile srcfile="listEmail.log" property="file" >
+          <filterchain> 
+              <ignoreblank/>
+              <linecontains negate="false">
+                  <contains value="FileName"/>
+              </linecontains>  
+              <tokenfilter>
+                  <replacestring from="FileName: reports/" to=""/>
+                  <replacestring from="FileName: documents/" to=""/>
+                  <replacestring from="FileName: email/" to=""/> 
+                  <replacestring from="FileName: dashboards/" to=""/>
+                  <replacestring from="FileName: unfiled$public" to="unfiled$public"/>                      
+                  <replacestring from=" " to=""/>
+              </tokenfilter>
+          </filterchain> 
+      </loadfile>  
+
+      <for param="line" list="${file}" delimiter="${line.separator}" >
+        <sequential> 
+          <echo file="EmailTemplateFolders.txt" append="true">@{line}${line.separator}</echo>
+                              
+        </sequential>
+      </for>
+
+    </target>
+
+    <target name="listDashboardFolder" >
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Org input: ${org}"/>
+      <echo message="User name: ${orguname}"/>
+
+        <delete file="listDashboard.log"/>
+        <delete file="DashboardFolders.txt"/>
+
+        <sf:listMetadata username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}"
+                    metadataType="DashboardFolder" resultFilePath="listDashboard.log"/>
+
+        <loadfile srcfile="listDashboard.log" property="file" >
+            <filterchain> 
+                <ignoreblank/>
+                <linecontains negate="false">
+                    <contains value="FileName"/>
+                </linecontains>  
+                <tokenfilter>
+                    <replacestring from="FileName: dashboards/" to=""/>
+                    <replacestring from=" " to=""/>
+                </tokenfilter>
+            </filterchain> 
+        </loadfile>  
+
+        <for param="line" list="${file}" delimiter="${line.separator}" >
+          <sequential> 
+            <echo file="DashboardFolders.txt" append="true">@{line}${line.separator}</echo>
+                                
+          </sequential>
+        </for>
+
+    </target>
+
+    <target name="bulkRetrieveEmails"  depends="init" >
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Org input: ${org}"/>
+      <echo message="user name: ${orguname}"/>
+
+      <antcall target="listEmailFolder"/>
+
+      <delete dir="${originalMetadata}-${org}-emails" />
+      <mkdir dir="${originalMetadata}-${org}-emails"/>
+
+      <loadfile property="file" srcfile="EmailTemplateFolders.txt"/>
+
+      <for param="line" list="${file}" delimiter="${line.separator}">
+        <sequential>
+          <sf:bulkRetrieve username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}"
+            metadataType="EmailTemplate" containingFolder="@{line}" retrieveTarget="${originalMetadata}-${org}-emails" />
+        </sequential>
+      </for>
+    </target>
+
+
+    <target name="bulkRetrieveDashboards"  depends="init" >
+
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Org input: ${org}"/>
+      <echo message="user name: ${orguname}"/>
+
+      <delete dir="${originalMetadata}-${org}-dashboards" />
+      <mkdir dir="${originalMetadata}-${org}-dashboards"/>
+
+      <sf:bulkRetrieve username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}"
+          metadataType="Dashboard" containingFolder="Case_Management_Team" retrieveTarget="${originalMetadata}-${org}-dashboards" />
+
+    </target>
+   
+    <target name="deployNewSandboxMetadata" depends="init">
+      <property name="org" value="DEV" />
+      <setCredentials org="${org}" />
+      <echo message="Target Org: ${org}"/>
+      <echo message="User name: ${orguname}"/>
+
+      <sf:deploy username="${orguname}" password="${orgpwd}" sessionId="" serverurl="${orgserver}" maxPoll="${sf.maxPoll}" deployRoot="newSandbox" rollbackOnError="true" CheckOnly="false" runAllTests="false"/>
+
+    </target>
+
+</project>

@@ -1,0 +1,29 @@
+v43
+Ant Migration Tool version 43.0
+
+v43.1
+Ant Migration Tool version 43.0
+updated package.xml to include Credit Application and Case objects
+
+v45
+Ant Migration Tool version 45.0
+Added commands validate, deploy, retrieveAndBackup to the build.xml file
+
+v48
+Ant Migration Tool version 48.0
+Added commands to directly extract metadata for UAT data masking preparation, disabling VR, workflows, flows and duplication rules and pushing the metadata back to SF
+updated list of items for the full copy package
+
+v48.1
+Ant Migration Tool version 48.0
+Added commands to directly extract metadata for UAT data masking preparation, disabling VR, workflows, flows and duplication rules and pushing the metadata back to SF
+updated list of items for the full copy package
+Updated command to retrieve Email templates in bulk
+
+v48.2
+Ant Migration Tool version 48.0
+Added commands to directly extract metadata for UAT data masking preparation, disabling VR, workflows, flows and duplication rules and pushing the metadata back to SF
+updated list of items for the full copy package
+Updated command to retrieve Email templates in bulk
+Updated apex triggers for new sandbox deployment
+Added command to set sandbox ready for masking
